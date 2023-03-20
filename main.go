@@ -181,6 +181,7 @@ func setupRouter() *gin.Engine {
 	router.GET("/:key", handleRead)
 	router.POST("/:key", handleWrite)
 	router.DELETE("/:key", handleWrite)
+	router.GET("/_nodes_discovery", handleNodesDiscovery)
 	router.GET("/_cluster_status", handleClusterStatus)
 	router.GET("/_nodes/:key", handleNodes)
 
@@ -206,6 +207,11 @@ func handleNodes(c *gin.Context) {
 
 	c.JSON(http.StatusOK, nodes)
 }
+
+func handleNodesDiscovery(c *gin.Context) {
+	c.JSON(http.StatusOK, readNodes())
+}
+
 
 func handleRead(c *gin.Context) {
 	key := c.Param("key")
@@ -426,10 +432,7 @@ func (s *grpcServer) Delete(context context.Context, kv *pb.Key) (*pb.Result, er
 }
 
 
-func loadRing() {
-	// TODO: manage reorganization
-	r := hashing.New()
-
+func readNodes() (nodes []Node) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
 
 	resp, err := etcdClient.Get(ctx, "strj_node_", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
@@ -438,9 +441,21 @@ func loadRing() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	for _, ev := range resp.Kvs {
 		var node Node
 		json.Unmarshal(ev.Value, &node)
+		nodes = append(nodes, node)
+	}
+
+	return
+}
+
+func loadRing() {
+	// TODO: manage reorganization
+	r := hashing.New()
+
+	for _, node := range readNodes() {
 		if node.Status == Ready {
 			log.Printf("Adding node %s", node.Host)
 			r.Add(fmt.Sprintf("%s", node.Host))
