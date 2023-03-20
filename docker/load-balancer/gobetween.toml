@@ -1,0 +1,20 @@
+[servers.sample]
+bind = ":7000"
+protocol = "tcp"
+balance = "roundrobin"
+
+max_connections = 10000
+client_idle_timeout = "10m"
+backend_idle_timeout = "10m"
+backend_connection_timeout = "2s"
+
+[servers.sample.discovery]
+kind = "static"
+static_list = [
+    "node_cluster_1:8001",
+    "node_cluster_2:8002",
+    "node_cluster_3:8003",
+]
+[profiler]
+enabled = true     # false | true
+bind    = ":6060"  # "host:port"
