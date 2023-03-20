@@ -12,7 +12,7 @@ services:
 
     ports:
       - "8000:8000"
-    command: [ "air", "--", "-name", "node1", "-host", "node1", "-port", "8000", "-debug", "true" ]
+    command: [ "air", "--", "-name", "node1", "-host", "node1", "-port", "8000", "-dataPath", "data/node_alone", "-debug", "true" ]
     profiles:
       - alone
 

@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
@@ -40,10 +39,10 @@ const (
 	grpcPort                    = 9000
 	numberOfWritingDoneForValid = 1
 	randomRead                  = true
+	etcdDir                     = "etcd_conf"
 )
 
 var (
-	logger         = log.Default()
 	nodeName       = flag.String("name", "node1", "The node name")
 	host           = flag.String("host", "node1", "The host name")
 	apiPort        = flag.String("port", "8000", "The API port")
@@ -77,19 +76,6 @@ type Node struct {
 	Id      uint64
 }
 
-func parseUrls(values []string) []url.URL {
-	urls := make([]url.URL, 0, len(values))
-	for _, s := range values {
-		u, err := url.Parse(s)
-		if err != nil {
-			log.Printf("Invalid url %s: %s", s, err.Error())
-			continue
-		}
-		urls = append(urls, *u)
-	}
-	return urls
-}
-
 func joinCluster() {
 	cfg := embed.NewConfig()
 	cfg.Name = *nodeName
@@ -104,7 +90,7 @@ func joinCluster() {
 		cfg.ClusterState = embed.ClusterStateFlagExisting
 	}
 	cfg.InitialCluster = *initialCluster
-	cfg.Dir = fmt.Sprintf("etcd3.%s", *nodeName)
+	cfg.Dir = fmt.Sprintf("%s/etcd3.%s", etcdDir, *nodeName)
 	etcdServer, err := embed.StartEtcd(cfg)
 	if err != nil {
 		log.Fatal(err)
@@ -124,7 +110,7 @@ func joinCluster() {
 		if *addToCluster {
 			status = Joining
 		}
-		nodeInfo, _ := json.Marshal(Node{Host: fmt.Sprintf("%s:%d", *host, grpcPort), ApiHost: fmt.Sprintf("%s:%s", *host, *apiPort), Status: status})
+		nodeInfo, _ := json.Marshal(Node{Host: fmt.Sprintf("%s:%d", *host, grpcPort), ApiHost: fmt.Sprintf("%s:%s", *host, *apiPort), Status: status, Id: uint64(etcdServer.Server.ID())})
 		_, err := etcdClient.Put(context.TODO(), fmt.Sprintf("strj_node_%s", *nodeName), string(nodeInfo))
 		if err != nil {
 			log.Fatal(err)
@@ -308,9 +294,22 @@ func handleNodes(c *gin.Context) {
 
 func handleDeleteNode(c *gin.Context) {
 	nodeId := c.Param("node")
+	var nodeInfo Node
+	node, err := etcdClient.KV.Get(context.Background(), fmt.Sprintf("strj_node_%s", nodeId))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(node.Kvs) == 0 {
+		c.String(http.StatusNotFound, "The node was not found")
+		return
+	}
+
+	json.Unmarshal(node.Kvs[0].Value, &nodeInfo)
 
 	etcdClient.KV.Delete(context.Background(), fmt.Sprintf("strj_node_%s", nodeId))
-	etcdClient.Cluster.MemberRemove(context.Background())
+	etcdClient.Cluster.MemberRemove(context.Background(), nodeInfo.Id)
+	c.String(http.StatusOK, "")
 }
 
 func handleRead(c *gin.Context) {
@@ -651,10 +650,34 @@ func contains(haystack []string, needle string) bool {
 	return false
 }
 
+func parseUrls(values []string) []url.URL {
+	urls := make([]url.URL, 0, len(values))
+	for _, s := range values {
+		u, err := url.Parse(s)
+		if err != nil {
+			log.Printf("Invalid url %s: %s", s, err.Error())
+			continue
+		}
+		urls = append(urls, *u)
+	}
+	return urls
+}
+
+func makeDirs() {
+	if _, err := os.Stat(*filePath); !os.IsNotExist(err) {
+		os.MkdirAll(*filePath, 0600)
+	}
+
+	if _, err := os.Stat(*filePath); !os.IsNotExist(err) {
+		os.MkdirAll(etcdDir, 0600)
+	}
+}
+
 func loadRing() {
 	// TODO: manage reorganization
 	r := hashing.New()
 	nr := hashing.New()
+	downscale := false
 
 	for _, node := range readNodes() {
 		switch node.Status {
@@ -670,28 +693,31 @@ func loadRing() {
 		}
 	}
 
-	ring = r
-
-	// Add new ring only if they contain different members
-	if !reflect.DeepEqual(r, nr) {
-		newRing = nr
+	if ring != nil && len(ring.Members()) > len(r.Members()) {
+		log.Printf("Downscaling")
+		downscale = true
 	}
 
+	ring = r
+	newRing = nr
+
+	makeDirs()
+
 	if !isGrpcStarted {
-		logger.Print("Starting Grpc server")
+		log.Print("Starting Grpc server")
 		go startGrpcServer()
 	}
 
 	if !isApiStarted {
-		logger.Print("Starting API server")
+		log.Print("Starting API server")
 		go startApiServer()
 	}
 
-	if *addToCluster && !firstSyncDone {
+	if (*addToCluster && !firstSyncDone) || downscale {
 		firstSyncDone = true
 		firstSync()
 	} else {
-		logger.Print("Starting cleaner")
+		log.Print("Starting cleaner")
 		go startCleaner()
 	}
 }

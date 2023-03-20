@@ -1,2 +1,2 @@
-etcd3.node_*
-data*
+etcd3_conf
+data
