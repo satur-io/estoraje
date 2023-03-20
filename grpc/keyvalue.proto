@@ -8,6 +8,7 @@ service KV {
   rpc Get (Key) returns (Value) {}
   rpc Set (KeyValue) returns (Result) {}
   rpc Delete (Key) returns (Result) {}
+  rpc Keys (Empty) returns (stream Key) {}
 }
 
 message Key {
@@ -26,4 +27,8 @@ message KeyValue {
 message Result {
   bool ok = 1;
   string error = 2;
+}
+
+message Empty {
+
 }

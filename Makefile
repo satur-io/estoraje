@@ -47,3 +47,11 @@ all-tests: | acceptance test # Run acceptance and unit tests.
 .PHONY: cluster-status
 cluster-status: # Show cluster status
 	curl localhost:8001/_cluster_status | jq # Show cluster status info
+
+.PHONY: add-samples
+add-samples: # Add a number of random values
+	test/add-samples.sh http://localhost:7000 $(number)
+
+.PHONY: clear
+clear: # Clear data from nodes and etcd cluster info
+	sudo rm -rf etcd3.node* data{1,2,3,4}/*

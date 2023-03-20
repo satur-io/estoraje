@@ -25,6 +25,7 @@ type KVClient interface {
 	Get(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Value, error)
 	Set(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*Result, error)
 	Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Result, error)
+	Keys(ctx context.Context, in *Empty, opts ...grpc.CallOption) (KV_KeysClient, error)
 }
 
 type kVClient struct {
@@ -62,6 +63,38 @@ func (c *kVClient) Delete(ctx context.Context, in *Key, opts ...grpc.CallOption)
 	return out, nil
 }
 
+func (c *kVClient) Keys(ctx context.Context, in *Empty, opts ...grpc.CallOption) (KV_KeysClient, error) {
+	stream, err := c.cc.NewStream(ctx, &KV_ServiceDesc.Streams[0], "/keyvalue.KV/Keys", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &kVKeysClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KV_KeysClient interface {
+	Recv() (*Key, error)
+	grpc.ClientStream
+}
+
+type kVKeysClient struct {
+	grpc.ClientStream
+}
+
+func (x *kVKeysClient) Recv() (*Key, error) {
+	m := new(Key)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // KVServer is the server API for KV service.
 // All implementations must embed UnimplementedKVServer
 // for forward compatibility
@@ -69,6 +102,7 @@ type KVServer interface {
 	Get(context.Context, *Key) (*Value, error)
 	Set(context.Context, *KeyValue) (*Result, error)
 	Delete(context.Context, *Key) (*Result, error)
+	Keys(*Empty, KV_KeysServer) error
 	mustEmbedUnimplementedKVServer()
 }
 
@@ -84,6 +118,9 @@ func (UnimplementedKVServer) Set(context.Context, *KeyValue) (*Result, error) {
 }
 func (UnimplementedKVServer) Delete(context.Context, *Key) (*Result, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedKVServer) Keys(*Empty, KV_KeysServer) error {
+	return status.Errorf(codes.Unimplemented, "method Keys not implemented")
 }
 func (UnimplementedKVServer) mustEmbedUnimplementedKVServer() {}
 
@@ -152,6 +189,27 @@ func _KV_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KV_Keys_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KVServer).Keys(m, &kVKeysServer{stream})
+}
+
+type KV_KeysServer interface {
+	Send(*Key) error
+	grpc.ServerStream
+}
+
+type kVKeysServer struct {
+	grpc.ServerStream
+}
+
+func (x *kVKeysServer) Send(m *Key) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // KV_ServiceDesc is the grpc.ServiceDesc for KV service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -172,6 +230,12 @@ var KV_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KV_Delete_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Keys",
+			Handler:       _KV_Keys_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "grpc/keyvalue.proto",
 }

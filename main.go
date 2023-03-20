@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -22,54 +25,56 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	keyvalue "github.com/satur-io/estoraje/grpc"
-	"github.com/satur-io/estoraje/lib/hashing"
-
 	pb "github.com/satur-io/estoraje/grpc"
+	"github.com/satur-io/estoraje/lib/hashing"
 )
 
 const (
-	Joining int8 = 0
-	Ready int8 = 1
-	Recovering int8 = 2
+	Joining        int8 = 0
+	Ready          int8 = 1
+	Recovering     int8 = 2
 	Reorganization int8 = 3
-	Unconsistent int8 = 4
-	Down int8 = -1
+	Unconsistent   int8 = 4
+	Down           int8 = -1
 
-	grpcPort = 9000
+	grpcPort                    = 9000
 	numberOfWritingDoneForValid = 1
-	randomRead = true
+	randomRead                  = true
 )
 
 var (
-	logger = log.Default()
-	nodeName = flag.String("name", "node1", "The node name")
-	host = flag.String("host", "node1", "The host name")
-	apiPort = flag.String("port", "8000", "The API port")
-	debug = flag.Bool("debug", false, "Debug logs")
-	filePath = flag.String("dataPath", "data", "Data directory path")
+	logger         = log.Default()
+	nodeName       = flag.String("name", "node1", "The node name")
+	host           = flag.String("host", "node1", "The host name")
+	apiPort        = flag.String("port", "8000", "The API port")
+	debug          = flag.Bool("debug", false, "Debug logs")
+	filePath       = flag.String("dataPath", "data", "Data directory path")
 	initialCluster = flag.String("initialCluster", "node1=http://node1:2380", "Etcd initial cluster hosts")
+	addToCluster   = flag.Bool("add", false, "Add to existent cluster")
 
-
-	isApiStarted = false
+	isApiStarted  = false
 	isGrpcStarted = false
+	firstSyncDone = false
 
-	readFile = os.ReadFile
-	writeFile = os.WriteFile
+	readFile   = os.ReadFile
+	writeFile  = os.WriteFile
 	removeFile = os.Remove
-	lockKey = concurrencyLockKey
+	lockKey    = concurrencyLockKey
 
-	ring *hashing.Consistent
-	etcdServer *embed.Etcd
+	ring    *hashing.Consistent
+	newRing *hashing.Consistent
+
 	etcdClient *clientv3.Client
-	session *concurrency.Session
+	session    *concurrency.Session
 
 	grpcConnections = make(map[string]grpc.ClientConn)
 )
 
 type Node struct {
-	Host string
-	Status int8
+	Host    string
+	ApiHost string
+	Status  int8
+	Id      uint64
 }
 
 func parseUrls(values []string) []url.URL {
@@ -88,10 +93,16 @@ func parseUrls(values []string) []url.URL {
 func joinCluster() {
 	cfg := embed.NewConfig()
 	cfg.Name = *nodeName
-	cfg.LPUrls = parseUrls([]string{"http://0.0.0.0:2380"}) 
-	cfg.LCUrls = parseUrls([]string{"http://0.0.0.0:2379"})                      
-	cfg.APUrls = parseUrls([]string{fmt.Sprintf("http://%s:2380", *nodeName)})   
-	cfg.ACUrls = parseUrls([]string{fmt.Sprintf("http://%s:2379", *nodeName)}) 
+	cfg.LPUrls = parseUrls([]string{"http://0.0.0.0:2380"})
+	cfg.LCUrls = parseUrls([]string{"http://0.0.0.0:2379"})
+	cfg.APUrls = parseUrls([]string{fmt.Sprintf("http://%s:2380", *nodeName)})
+	cfg.ACUrls = parseUrls([]string{fmt.Sprintf("http://%s:2379", *nodeName)})
+	cfg.InitialClusterFromName("estoraje-cluster")
+
+	if *addToCluster {
+		addMemberToRemoteCluster()
+		cfg.ClusterState = embed.ClusterStateFlagExisting
+	}
 	cfg.InitialCluster = *initialCluster
 	cfg.Dir = fmt.Sprintf("etcd3.%s", *nodeName)
 	etcdServer, err := embed.StartEtcd(cfg)
@@ -109,7 +120,11 @@ func joinCluster() {
 		session, _ = concurrency.NewSession(etcdClient)
 		defer session.Close()
 
-		nodeInfo, _ :=  json.Marshal(Node{Host: fmt.Sprintf("%s:%d", *host, grpcPort), Status: Ready})
+		status := Ready
+		if *addToCluster {
+			status = Joining
+		}
+		nodeInfo, _ := json.Marshal(Node{Host: fmt.Sprintf("%s:%d", *host, grpcPort), ApiHost: fmt.Sprintf("%s:%s", *host, *apiPort), Status: status})
 		_, err := etcdClient.Put(context.TODO(), fmt.Sprintf("strj_node_%s", *nodeName), string(nodeInfo))
 		if err != nil {
 			log.Fatal(err)
@@ -120,6 +135,43 @@ func joinCluster() {
 		log.Printf("Etcd server took too long to start!")
 	}
 	log.Fatal(<-etcdServer.Err())
+}
+
+func addMemberToRemoteCluster() {
+	nodes := strings.Split(*initialCluster, ",")
+	var endpoints []string
+	for _, node := range nodes {
+		endpoints = append(endpoints, strings.Split(node, "=")[1])
+	}
+
+	// expect dial time-out on ipv4 blackhole
+	_, err := clientv3.New(clientv3.Config{
+		Endpoints:   endpoints,
+		DialTimeout: 2 * time.Second,
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   endpoints,
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	memberlist, _ := cli.MemberList(context.Background())
+
+	for _, member := range memberlist.Members {
+		if member.PeerURLs[0] == fmt.Sprintf("http://%s:2380", *host) {
+			cli.MemberRemove(context.Background(), member.ID)
+		}
+	}
+
+	cli.MemberAdd(context.Background(), []string{fmt.Sprintf("http://%s:2380", *host)})
+	defer cli.Close()
 }
 
 func updateStatus(node string, status int8) {
@@ -170,34 +222,80 @@ func startGrpcServer() {
 	}
 }
 
+func firstSync() {
+	keys := make(chan string)
+
+	go getRemoteKeys(keys)
+
+	for key := range keys {
+		hk, _ := newRing.GetNodes(key)
+
+		for _, node := range hk.Nodes {
+			if strings.HasPrefix(node, *host) {
+				go updateFromRemote(key)
+			}
+		}
+	}
+
+	updateStatus(*nodeName, Ready)
+}
+
+func updateFromRemote(key string) {
+	hk, _ := newRing.GetNodes(key)
+	ch := dummyChannel[bool]()
+	for _, node := range hk.Nodes {
+		if !strings.HasPrefix(node, *host) {
+			value, err := remoteRead(key, node)
+			if err != nil {
+				log.Fatal("Error syncronizing")
+			}
+
+			localWrite(key, value, ch)
+		}
+	}
+	close(ch)
+}
+
 func setupRouter() *gin.Engine {
-	if !*debug { gin.SetMode(gin.ReleaseMode) }
+	if !*debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	if *debug { router.Use(gin.Logger()) }
+	if *debug {
+		router.Use(gin.Logger())
+	}
 
 	router.GET("/:key", handleRead)
 	router.POST("/:key", handleWrite)
 	router.DELETE("/:key", handleWrite)
-	router.GET("/_nodes_discovery", handleNodesDiscovery)
+	router.GET("/_nodes_discovery", func(ctx *gin.Context) { ctx.JSON(http.StatusOK, readNodes()) })
+	router.GET("/_nodes_discovery_plain", func(ctx *gin.Context) {
+		for _, node := range readNodes() {
+			ctx.String(http.StatusOK, fmt.Sprintf("%s\n", node.ApiHost))
+		}
+	})
+	router.GET("/_health", func(ctx *gin.Context) { ctx.String(http.StatusOK, "") })
 	router.GET("/_cluster_status", handleClusterStatus)
 	router.GET("/_nodes/:key", handleNodes)
+	router.DELETE("/_nodes/delete/:node", handleDeleteNode)
 
 	return router
 }
 
 func handleClusterStatus(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	resp, err := etcdClient.Get(ctx, "strj_node_", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	cancel()
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}
+	list, _ := etcdClient.Cluster.MemberList(context.Background())
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, map[string]any{"keys": resp, "members": list})
 }
 
 func handleNodes(c *gin.Context) {
@@ -208,10 +306,12 @@ func handleNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, nodes)
 }
 
-func handleNodesDiscovery(c *gin.Context) {
-	c.JSON(http.StatusOK, readNodes())
-}
+func handleDeleteNode(c *gin.Context) {
+	nodeId := c.Param("node")
 
+	etcdClient.KV.Delete(context.Background(), fmt.Sprintf("strj_node_%s", nodeId))
+	etcdClient.Cluster.MemberRemove(context.Background())
+}
 
 func handleRead(c *gin.Context) {
 	key := c.Param("key")
@@ -241,7 +341,7 @@ func handleRead(c *gin.Context) {
 	c.Data(http.StatusNotFound, "raw", []byte(""))
 }
 
-func concurrencyLockKey(key string) (unlock func() error, err error){
+func concurrencyLockKey(key string) (unlock func() error, err error) {
 	locker := concurrency.NewMutex(session, key)
 	unlock = func() error {
 		return locker.Unlock(context.Background())
@@ -253,7 +353,7 @@ func concurrencyLockKey(key string) (unlock func() error, err error){
 func handleWrite(c *gin.Context) {
 	key := c.Param("key")
 	var value []byte
-	
+
 	if c.Request.Method == http.MethodPost {
 		value, _ = c.GetRawData()
 	}
@@ -275,17 +375,15 @@ func handleWrite(c *gin.Context) {
 	ch := make(chan bool)
 	response := make(chan bool)
 
-
 	switch method := c.Request.Method; method {
 	case http.MethodPost:
 		localAction = func() { localWrite(key, value, ch) }
-		remoteAction = func(node string) { remoteWrite(key, value, ch, node)}
+		remoteAction = func(node string) { remoteWrite(key, value, ch, node) }
 	case http.MethodDelete:
 		localAction = func() { localDelete(key, ch) }
-		remoteAction = func (node string)  { remoteDelete(key, ch, node) }
+		remoteAction = func(node string) { remoteDelete(key, ch, node) }
 	}
 
-	
 	for _, node := range nodes {
 		if strings.HasPrefix(node, *host) {
 			go localAction()
@@ -294,9 +392,8 @@ func handleWrite(c *gin.Context) {
 		}
 	}
 
-
 	manageWrites(ch, response, len(nodes))
-	if <- response {
+	if <-response {
 		c.Data(http.StatusOK, "raw", []byte(""))
 		return
 	} else {
@@ -307,19 +404,19 @@ func handleWrite(c *gin.Context) {
 }
 
 func manageWrites(ch chan bool, response chan bool, expectedResponses int) {
-	go func ()  {
+	go func() {
 		writes := 0
 		responses := 0
 
 		for {
-			writed := <- ch
+			writed := <-ch
 			responses++
 			if writed {
 				writes++
 			} else {
 				// TODO: manage node error
 			}
-			
+
 			if writes >= numberOfWritingDoneForValid {
 				response <- true
 			}
@@ -342,7 +439,7 @@ func localWrite(key string, value []byte, ch chan bool) {
 		ch <- false
 		return
 	}
-	
+
 	ch <- true
 }
 
@@ -352,7 +449,7 @@ func localDelete(key string, ch chan bool) {
 		ch <- false
 		return
 	}
-	
+
 	ch <- true
 }
 
@@ -387,7 +484,7 @@ func remoteDelete(key string, ch chan bool, node string) {
 	ch <- false
 }
 
-func getClient(node string) keyvalue.KVClient {
+func getClient(node string) pb.KVClient {
 	connection, ok := grpcConnections[node]
 
 	if ok {
@@ -404,12 +501,51 @@ func getClient(node string) keyvalue.KVClient {
 	return pb.NewKVClient(conn)
 }
 
+func getRemoteKeys(keys chan string) {
+	for _, node := range ring.Members() {
+		if strings.HasPrefix(node, *host) {
+			continue
+		}
+		client := getClient(node)
+		stream, error := client.Keys(context.Background(), &pb.Empty{})
+		if error != nil {
+			log.Fatalf("read remote keys failed: %v", error)
+		}
+
+		for {
+			key, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("read remote keys failed: %v", err)
+			}
+			keys <- key.Hash
+		}
+	}
+	close(keys)
+}
+
+func readKeys(ch chan string, quit chan bool) {
+	files, err := ioutil.ReadDir(*filePath)
+	if err != nil {
+		quit <- true
+		log.Fatal(err)
+	}
+
+	for _, file := range files {
+		ch <- file.Name()
+	}
+
+	quit <- true
+}
+
 type grpcServer struct {
 	pb.UnimplementedKVServer
 }
 
 func (s *grpcServer) Get(context context.Context, key *pb.Key) (*pb.Value, error) {
-	value, err := localRead(key.GetHash()) 
+	value, err := localRead(key.GetHash())
 	return &pb.Value{
 		Value: value,
 	}, err
@@ -431,13 +567,28 @@ func (s *grpcServer) Delete(context context.Context, kv *pb.Key) (*pb.Result, er
 	return &pb.Result{Ok: true}, nil
 }
 
+func (s *grpcServer) Keys(empty *pb.Empty, stream pb.KV_KeysServer) error {
+	ch := make(chan string)
+	quit := make(chan bool)
+
+	go readKeys(ch, quit)
+
+	for {
+		select {
+		case key := <-ch:
+			stream.Send(&pb.Key{Hash: key})
+		case <-quit:
+			return nil
+		}
+	}
+}
 
 func readNodes() (nodes []Node) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	resp, err := etcdClient.Get(ctx, "strj_node_", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	cancel()
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -451,33 +602,97 @@ func readNodes() (nodes []Node) {
 	return
 }
 
+func dummyChannel[T comparable]() (dummyChannel chan T) {
+	dummyChannel = make(chan T)
+	go func() {
+		for range dummyChannel {
+		}
+	}()
+	return
+}
+
+func startCleaner() {
+	ch := make(chan string)
+	quit := make(chan bool)
+	dch := dummyChannel[bool]()
+	deletes := 0
+
+	go readKeys(ch, quit)
+
+	for {
+		select {
+		case key := <-ch:
+			hk, err := ring.GetNodes(key)
+
+			if err != nil {
+				log.Printf("Error cleaning the node")
+				continue
+			}
+
+			if !contains(hk.Nodes, fmt.Sprintf("%s:%d", *host, grpcPort)) {
+				deletes++
+				localDelete(key, dch)
+			}
+
+		case <-quit:
+			close(dch)
+			log.Printf("%d key deleted", deletes)
+			return
+		}
+	}
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if strings.EqualFold(s, needle) {
+			return true
+		}
+	}
+	return false
+}
+
 func loadRing() {
 	// TODO: manage reorganization
 	r := hashing.New()
+	nr := hashing.New()
 
 	for _, node := range readNodes() {
-		if node.Status == Ready {
-			log.Printf("Adding node %s", node.Host)
-			r.Add(fmt.Sprintf("%s", node.Host))
-		} else {
+		switch node.Status {
+		case Ready:
+			log.Printf("Adding node %s to working ring", node.Host)
+			r.Add(node.Host)
+			nr.Add(node.Host)
+		case Joining:
+			log.Printf("Adding node %s to future ring", node.Host)
+			nr.Add(node.Host)
+		default:
 			log.Printf("Node %s is not ready", node.Host)
 		}
 	}
 
 	ring = r
 
+	// Add new ring only if they contain different members
+	if !reflect.DeepEqual(r, nr) {
+		newRing = nr
+	}
+
 	if !isGrpcStarted {
 		logger.Print("Starting Grpc server")
-		logger.Print(*nodeName)
-	
 		go startGrpcServer()
 	}
 
 	if !isApiStarted {
 		logger.Print("Starting API server")
-		logger.Print(*nodeName)
-	
 		go startApiServer()
+	}
+
+	if *addToCluster && !firstSyncDone {
+		firstSyncDone = true
+		firstSync()
+	} else {
+		logger.Print("Starting cleaner")
+		go startCleaner()
 	}
 }
 

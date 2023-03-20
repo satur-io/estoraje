@@ -15,6 +15,7 @@ static_list = [
     "node_cluster_2:8002",
     "node_cluster_3:8003",
 ]
+
 [profiler]
 enabled = true     # false | true
 bind    = ":6060"  # "host:port"
