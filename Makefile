@@ -1,5 +1,5 @@
 default: help
-
+SHELL := /bin/bash
 IS_RUNNING=`docker compose ls | grep estoraje-go.*running | wc -l`
 
 .PHONY: help
@@ -22,8 +22,8 @@ stop: # Run estoraje cluster for development.
 restart: | stop run # Run estoraje cluster for development.
 
 .PHONY: build
-build:
-	docker compose build --force-rm
+build: # Build docker images
+	 docker compose --profile cluster build --force-rm --progress=plain
 
 .PHONY: test
 test: # Run unit tets.
@@ -46,7 +46,7 @@ all-tests: | acceptance test # Run acceptance and unit tests.
 
 .PHONY: cluster-status
 cluster-status: # Show cluster status
-	curl localhost:8001/_cluster_status | jq # Show cluster status info
+	curl localhost:7000/_cluster_status | jq
 
 .PHONY: add-samples
 add-samples: # Add a number of random values
@@ -54,4 +54,4 @@ add-samples: # Add a number of random values
 
 .PHONY: clear
 clear: # Clear data from nodes and etcd cluster info
-	sudo rm -rf etcd3.node* data{1,2,3,4}/*
+	rm -rf data etcd_conf tmp/{1,2,3,4,5}/*

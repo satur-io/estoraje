@@ -8,7 +8,7 @@ services:
       target: dev
     volumes:
       - .:/opt/app/api
-      - tmp-node1:/opt/app/api/tmp
+      - ./tmp/1:/opt/app/api/tmp
 
     ports:
       - "8000:8000"
@@ -23,10 +23,10 @@ services:
       target: dev
     volumes:
       - .:/opt/app/api
-      - tmp-node2:/opt/app/api/tmp
+      - ./tmp/2:/opt/app/api/tmp
     ports:
       - "8001:8001"
-    command: [ "air", "--", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380",  "-name", "node_cluster_1", "-host", "node_cluster_1", "-port", "8001", "-dataPath", "data1", "-debug", "true" ]
+    command: [ "air", "--", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380",  "-name", "node_cluster_1", "-host", "node_cluster_1", "-port", "8001", "-dataPath", "data/node_1", "-debug", "true" ]
     profiles:
       - cluster
 
@@ -37,11 +37,11 @@ services:
       target: dev
     volumes:
       - .:/opt/app/api
-      - tmp-node3:/opt/app/api/tmp
+      - ./tmp/3:/opt/app/api/tmp
 
     ports:
       - "8002:8002"
-    command: [ "air", "--", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380", "-name", "node_cluster_2", "-host", "node_cluster_2", "-port", "8002", "-dataPath", "data2", "-debug" ]
+    command: [ "air", "--", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380", "-name", "node_cluster_2", "-host", "node_cluster_2", "-port", "8002", "-dataPath", "data/node_2", "-debug" ]
     profiles:
       - cluster
 
@@ -52,11 +52,11 @@ services:
       target: dev
     volumes:
       - .:/opt/app/api
-      - tmp-node4:/opt/app/api/tmp
+      - ./tmp/4:/opt/app/api/tmp
 
     ports:
       - "8003:8003"
-    command: [ "air", "--", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380", "-name", "node_cluster_3", "-host", "node_cluster_3", "-port", "8003", "-dataPath", "data3", "-debug" ]
+    command: [ "air", "--", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380", "-name", "node_cluster_3", "-host", "node_cluster_3", "-port", "8003", "-dataPath", "data/node_3", "-debug" ]
     profiles:
       - cluster
 
@@ -67,11 +67,11 @@ services:
       target: dev
     volumes:
       - .:/opt/app/api
-      - tmp-node5:/opt/app/api/tmp
+      - ./tmp/5:/opt/app/api/tmp
 
     ports:
       - "8004:8004"
-    command: [ "air", "--", "-add", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380,node_cluster_4=http://node_cluster_4:2380", "-name", "node_cluster_4", "-host", "node_cluster_4", "-port", "8003", "-dataPath", "data4", "-debug" ]
+    command: [ "air", "--", "-add", "-initialCluster", "node_cluster_1=http://node_cluster_1:2380,node_cluster_2=http://node_cluster_2:2380,node_cluster_3=http://node_cluster_3:2380,node_cluster_4=http://node_cluster_4:2380", "-name", "node_cluster_4", "-host", "node_cluster_4", "-port", "8003", "-dataPath", "data/node_4", "-debug" ]
     profiles:
       - add-node-to-cluster
 
@@ -88,11 +88,3 @@ services:
       - ./docker/load-balancer/gobetween.toml:/lb/config/gobetween.toml
     profiles:
       - cluster
-
-volumes:
-  tmp-node1:
-  tmp-node2:
-  tmp-node3:
-  tmp-node4:
-  tmp-node5:
-

@@ -664,12 +664,12 @@ func parseUrls(values []string) []url.URL {
 }
 
 func makeDirs() {
-	if _, err := os.Stat(*filePath); !os.IsNotExist(err) {
-		os.MkdirAll(*filePath, 0600)
+	if _, err := os.Stat(*filePath); os.IsNotExist(err) {
+		os.MkdirAll(*filePath, 0777)
 	}
 
-	if _, err := os.Stat(*filePath); !os.IsNotExist(err) {
-		os.MkdirAll(etcdDir, 0600)
+	if _, err := os.Stat(etcdDir); os.IsNotExist(err) {
+		os.MkdirAll(etcdDir, 0777)
 	}
 }
 
