@@ -29,7 +29,7 @@ Taking in mind the acceptance criteria, this is the approach:
 - Use a hard consistency system to coordinate the nodes. In our case, we have an embed etcd server as a sidecar on each node.
 
 ### ¿Why all logic in one file?
-Almost all the code is in one file, main.go. Why?
+Almost all the code is in one file, `main.go`. Why?
 
 This is a way to force myself to keep the system simple! If you can use only one file -and you don't want to go crazy- all non-essential code will be removed and you won't develop unwanted features.
 
