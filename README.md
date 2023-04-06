@@ -85,7 +85,7 @@ This project is developed for self training purposes. My main goal is building a
 ### Architecture
 
 We actually need two different features to make our system functional: On one side, we need to decide on an approach to distribute the data among the nodes, and on the other side, we must coordinate these nodes.
-This could be done in some different ways: master-slave, consensus algorithm... To make a decision is essential to know what are we expecting from our system: ¿High availability? ¿Large storage? ¿Real-time? ¿Consistency? So, to simplify, we are assuming some outlines our use-case:
+This could be done in some different ways: master-slave, consensus algorithm... To make a decision is essential to know what are we expecting from our system: High availability? Large storage? Real-time? Consistency? So, to simplify, we are assuming some outlines our use-case:
 
 - All nodes should have the same responsibility and be, as far as possible, identical. Just one source code for each piece.
 - We expect more reading than writing. Also, we expect that a handful of keys are requested more times than the other ones.
