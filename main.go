@@ -55,10 +55,11 @@ var (
 	isGrpcStarted = false
 	firstSyncDone = false
 
-	readFile   = os.ReadFile
-	writeFile  = os.WriteFile
-	removeFile = os.Remove
-	lockKey    = concurrencyLockKey
+	readFile     = os.ReadFile
+	writeFile    = os.WriteFile
+	removeFile   = os.Remove
+	lockKey      = concurrencyLockKey
+	updateStatus = updateStatusEtcd
 
 	ring    *hashing.Consistent
 	newRing *hashing.Consistent
@@ -160,7 +161,7 @@ func addMemberToRemoteCluster() {
 	defer cli.Close()
 }
 
-func updateStatus(node string, status int8) {
+func updateStatusEtcd(node string, status int8) {
 	var nodeInfo Node
 	currentNode, err := etcdClient.Get(context.Background(), fmt.Sprintf("strj_node_%s", node))
 	if err != nil {
