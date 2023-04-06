@@ -29,7 +29,7 @@ curl -X DELETE http://localhost:8000/{key}
 ```
 
 ### Benchmarking
-For a production-like cluster (keep in mind estoraje is not ready for production at all):
+For a production-like cluster (keep in mind **estoraje is not ready for production at all**):
 
 You can run a three nodes server this way
 
@@ -65,7 +65,18 @@ You should also have a load balancer. You could install caddy and just run as re
 caddy reverse-proxy --from estoraje.satur.io --to n1.satur.io --to n2.satur.io --to n3.satur.io
 ```
 
-Install estoraje in each node
+To add a new node
+```sh
+# Node 4
+estorage -name=node_4 \
+	--add
+	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380,node_4=https://n4.satur.io:2380
+	-host=n3.satur.io
+	-port=8001
+	-dataPath=data
+```
+
+Remember to update also the load balancer adding the new node or use the `/_nodes_discovery` or the `/_nodes_discovery_plain` endpoint for dinamic config.
 
 ## Description
 
@@ -91,7 +102,9 @@ Taking in mind the acceptance criteria, this is the approach:
 - Use consistent hashing to distribute the data among the nodes.
 - Use a hard consistency system to coordinate the nodes. In our case, we have an embed etcd server as a sidecar on each node.
 
-### ¿Why all logic in one file?
+Also, keeping simplicity in mind, we need to decide how to store the data in the node. We resolved this in the simplest way: we create a new file for each key. By doing this, we delegate all indexing and caching work to the file system, which should function adequately in modern operating systems. This approach has some clear weaknesses, but it also has a main strength: it is clearly the simplest.
+
+### Why all logic in one file?
 Almost all the code is in one file, `main.go`. Why?
 
 This is a way to force myself to keep the system simple! If you can use only one file -and you don't want to go crazy- all non-essential code will be removed, and you won't develop unwanted features.
