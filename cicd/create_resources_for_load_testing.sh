@@ -38,15 +38,49 @@ done
 echo "${#PUBLIC_IPS[@]} public ips"
 echo $PUBLIC_IPS
 
-ssh root@${PUBLIC_IPS[0]} 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
-ssh root@${PUBLIC_IPS[0]} 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
-ssh root@${PUBLIC_IPS[0]} './estoraje -name=node_1 -initialCluster=node_1=https://10.114.0.2:2380,node_2=https://10.114.0.3:2380,node_3=https://10.114.0.4:2380 \
-	-host=10.114.0.2 \
+
+retries=0
+repeat=true
+while "$repeat"; do
+    ((retries+=1)) &&
+    ssh -o "StrictHostKeyChecking=no" root@${PUBLIC_IPS[0]} 'whoami' &&
+    repeat=false
+    if [[ $retries < 10 ]]; then
+        exit("Cannot connect to server")
+    fi
+    if "$repeat"; then
+        sleep 5
+    fi
+done
+
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" \
+    "./estoraje -name=node_1 \
+    -initialCluster=node_1=https://${PRIVATE_IPS[0]}:2380,node_2=https://${PRIVATE_IPS[1]}:2380,node_3=https://${PRIVATE_IPS[2]:2380 \
+	-host=${PRIVATE_IPS[0]} \
 	-port=8001 \
-	-dataPath=data &'
+	-dataPath=data &"
 
 
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" \
+    "./estoraje -name=node_2 \
+    -initialCluster=node_1=https://${PRIVATE_IPS[0]}:2380,node_2=https://${PRIVATE_IPS[1]}:2380,node_3=https://${PRIVATE_IPS[2]:2380 \
+	-host=${PRIVATE_IPS[1]} \
+	-port=8001 \
+	-dataPath=data &"
 
+
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" \
+    "./estoraje -name=node_3 \
+    -initialCluster=node_1=https://${PRIVATE_IPS[0]}:2380,node_2=https://${PRIVATE_IPS[1]}:2380,node_3=https://${PRIVATE_IPS[2]:2380 \
+	-host=${PRIVATE_IPS[2]} \
+	-port=8001 \
+	-dataPath=data &"
 
 # curl -X POST -H 'Content-Type: application/json' \
 #     -H 'Authorization: Bearer '$DIGITAL_OCEAN_TOKEN'' \
