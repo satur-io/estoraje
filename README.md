@@ -38,24 +38,24 @@ You can run a three nodes server this way
 2. Run estoraje
 ```sh
 # Node 1
-estorage -name=node_1 \
-	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380
-	-host=n1.satur.io
-	-port=8001
+estoraje -name=node_1 \
+	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380 \
+	-host=n1.satur.io \
+	-port=8001 \
 	-dataPath=data
 	
 # Node 2
-estorage -name=node_2 \
-	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380
-	-host=n2.satur.io
-	-port=8001
+estoraje -name=node_2 \
+	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380 \
+	-host=n2.satur.io \
+	-port=8001 \
 	-dataPath=data
 	
 # Node 3
-estorage -name=node_3 \
-	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380
-	-host=n3.satur.io
-	-port=8001
+estoraje -name=node_3 \
+	-initialCluster=node_1=https://n1.satur.io:2380,node_2=https://n2.satur.io:2380,node_3=https://n3.satur.io:2380 \
+	-host=n3.satur.io \
+	-port=8001 \
 	-dataPath=data
 ```
 
