@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -38,7 +37,6 @@ const (
 
 	grpcPort                    = 9000
 	numberOfWritingDoneForValid = 1
-	randomRead                  = true
 	etcdDir                     = "etcd_conf"
 )
 
@@ -318,9 +316,11 @@ func handleRead(c *gin.Context) {
 	hk, _ := ring.GetNodes(key)
 	nodes := hk.Nodes
 
-	rand.Shuffle(len(nodes), func(i, j int) {
-		nodes[i], nodes[j] = nodes[j], nodes[i]
-	})
+	for i, node := range nodes {
+		if strings.HasPrefix(node, *nodeName) && i > 0 {
+			nodes[0], nodes[i] = nodes[i], nodes[0]
+		}
+	}
 
 	for _, node := range nodes {
 		var value []byte
