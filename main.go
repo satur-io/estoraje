@@ -82,8 +82,8 @@ func joinCluster() {
 	cfg.Name = *nodeName
 	cfg.LPUrls = parseUrls([]string{"http://0.0.0.0:2380"})
 	cfg.LCUrls = parseUrls([]string{"http://0.0.0.0:2379"})
-	cfg.APUrls = parseUrls([]string{fmt.Sprintf("http://%s:2380", *nodeName)})
-	cfg.ACUrls = parseUrls([]string{fmt.Sprintf("http://%s:2379", *nodeName)})
+	cfg.APUrls = parseUrls([]string{fmt.Sprintf("http://%s:2380", *host)})
+	cfg.ACUrls = parseUrls([]string{fmt.Sprintf("http://%s:2379", *host)})
 	cfg.InitialClusterFromName("estoraje-cluster")
 
 	if *addToCluster {
