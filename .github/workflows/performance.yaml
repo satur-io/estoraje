@@ -6,14 +6,20 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Create resources
-        run: ../cicd/create_resources_for_load_testing.sh
+        run: |
+          chmod +x ./cicd/create_resources_for_load_testing.sh
+          ./cicd/create_resources_for_load_testing.sh
       - name: Run load test
         id: locust
-        run: ../cicd/performance.sh
+        run: |
+          chmod +x ./cicd/performance.sh
+          ./cicd/performance.sh
 
   cleanup:
     runs-on: ubuntu-latest
     if: always()
     needs: [load-test]
     steps:
-      - run: ../cicd/clean_resources_for_load_testing.sh
+      - run: |
+        chmod +x ./cicd/clean_resources_for_load_testing.sh
+        ./cicd/clean_resources_for_load_testing.sh
