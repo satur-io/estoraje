@@ -30,7 +30,7 @@ jobs:
         run: |
           chmod +x ./cicd/performance.sh
           ./cicd/performance.sh
-          cat /tmp/locust.result >> $GITHUB_STEP_SUMMARY
+          cat /tmp/locust.summary >> $GITHUB_STEP_SUMMARY
 
   cleanup:
     runs-on: ubuntu-latest
