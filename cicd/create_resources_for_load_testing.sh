@@ -8,7 +8,7 @@ curl -X POST -H 'Content-Type: application/json' \
         "image":"ubuntu-22-10-x64",
         "monitoring":true,
         "vpc_uuid":"566b9e0d-3f17-4832-908e-2d5ff23401c1",
-        "ssh_keys":[37976894,36058388],
+        "ssh_keys":[37976894,36058388,38048295],
         "tags":["load-testing"]}' \
     "https://api.digitalocean.com/v2/droplets"
 
@@ -92,7 +92,7 @@ curl -X POST -H 'Content-Type: application/json' \
         "region":"fra1",
         "image":"ubuntu-22-10-x64",
         "vpc_uuid":"566b9e0d-3f17-4832-908e-2d5ff23401c1",
-        "ssh_keys":[37976894,36058388],
+        "ssh_keys":[37976894,36058388,38048295],
         "tags":["load-testing","test-load-balancer"]}' \
     "https://api.digitalocean.com/v2/droplets"
 

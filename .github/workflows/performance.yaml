@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v3
+      - name: Add ssh key
+        run: ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
       - name: Create resources
         run: |
           chmod +x ./cicd/create_resources_for_load_testing.sh
