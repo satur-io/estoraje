@@ -128,7 +128,8 @@ ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \
 [Unit]
 Description=Caddy load balancer
 After=network.target
-StartLimitIntervalSec=0[Service]
+StartLimitIntervalSec=0
+[Service]
 Type=simple
 Restart=always
 RestartSec=1
