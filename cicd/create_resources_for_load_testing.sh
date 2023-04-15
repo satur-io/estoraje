@@ -124,4 +124,4 @@ done
 
 ssh -o "StrictHostKeyChecking=no" root@${LOAD_BALANCER_PUBLIC_IP} 'snap install --edge caddy'
 ssh -o "StrictHostKeyChecking=no" root@${LOAD_BALANCER_PUBLIC_IP} \
-    "nohup caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_IPS[0]}:8001 --to ${PRIVATE_IPS[1]}:8001 --to ${PRIVATE_IPS[2]}:8001 > foo.log 2> foo.err < /dev/null &"
+    "nohup caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_IPS[0]}:8001 --to ${PRIVATE_IPS[1]}:8001 --to ${PRIVATE_IPS[2]}:8001 > foo.log 2> foo.err < /dev/null & disown"
