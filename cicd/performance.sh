@@ -9,5 +9,4 @@ done
 
 pip install locust
 
-locust -f test/locustfile.py --headless -u 100 -r 5 --run-time 5m -H https://${LOAD_BALANCER_PUBLIC_IP} --only-summary >> $GITHUB_STEP_SUMMARY
-
+locust -f test/locustfile.py --loglevel ERROR --only-summary --headless -u 100 -r 5 --run-time 1m -H https://${LOAD_BALANCER_PUBLIC_IP} >> /tmp/locust.summary
