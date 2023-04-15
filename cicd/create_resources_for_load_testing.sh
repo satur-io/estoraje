@@ -54,8 +54,8 @@ while $should_repeat; do
     fi
 done
 
-ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
-ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/latest/download/estoraje.tar.gz'
+ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje.tar.gz'
 ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" \
     "nohup ./estoraje -name=node_1 \
     -initialCluster=node_1=http://${PRIVATE_IPS[0]}:2380,node_2=http://${PRIVATE_IPS[1]}:2380,node_3=http://${PRIVATE_IPS[2]}:2380 \
@@ -65,8 +65,8 @@ ssh root@${PUBLIC_IPS[0]} -o "StrictHostKeyChecking=no" \
     > foo.log 2> foo.err < /dev/null &"
 
 
-ssh root@${PUBLIC_IPS[1]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
-ssh root@${PUBLIC_IPS[1]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[1]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/latest/download/estoraje.tar.gz'
+ssh root@${PUBLIC_IPS[1]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje.tar.gz'
 ssh root@${PUBLIC_IPS[1]} -o "StrictHostKeyChecking=no" \
     "nohup ./estoraje -name=node_2 \
     -initialCluster=node_1=http://${PRIVATE_IPS[0]}:2380,node_2=http://${PRIVATE_IPS[1]}:2380,node_3=http://${PRIVATE_IPS[2]}:2380 \
@@ -75,8 +75,8 @@ ssh root@${PUBLIC_IPS[1]} -o "StrictHostKeyChecking=no" \
 	-dataPath=data \
     > foo.log 2> foo.err < /dev/null &"
 
-ssh root@${PUBLIC_IPS[2]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/download/v0.0.2/estoraje-v0.0.2-linux-amd64.tar.gz'
-ssh root@${PUBLIC_IPS[2]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje-v0.0.2-linux-amd64.tar.gz'
+ssh root@${PUBLIC_IPS[2]} -o "StrictHostKeyChecking=no" 'wget https://github.com/satur-io/estoraje/releases/latest/download/estoraje.tar.gz'
+ssh root@${PUBLIC_IPS[2]} -o "StrictHostKeyChecking=no" 'tar -xf estoraje.tar.gz'
 ssh root@${PUBLIC_IPS[2]} -o "StrictHostKeyChecking=no" \
     "nohup ./estoraje -name=node_3 \
     -initialCluster=node_1=http://${PRIVATE_IPS[0]}:2380,node_2=http://${PRIVATE_IPS[1]}:2380,node_3=http://${PRIVATE_IPS[2]}:2380 \
