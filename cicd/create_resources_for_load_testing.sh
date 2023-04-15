@@ -124,7 +124,19 @@ done
 
 ssh -o "StrictHostKeyChecking=no" root@${LOAD_BALANCER_PUBLIC_IP} 'snap install --edge caddy'
 ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \
-    "nohup caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_IPS[0]}:8001 --to ${PRIVATE_IPS[1]}:8001 --to ${PRIVATE_IPS[2]}:8001 > foo.log 2> foo.err < /dev/null &"
+    "cat <<EOF > /etc/systemd/system/caddy-lb.service
+[Unit]
+Description=Caddy load balancer
+After=network.target
+StartLimitIntervalSec=0[Service]
+Type=simple
+Restart=always
+RestartSec=1
+ExecStart= caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_IPS[0]}:8001 --to ${PRIVATE_IPS[1]}:8001 --to ${PRIVATE_IPS[2]}:8001
+EOF"
+
+ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \ 'systemctl start caddy-lb'
+ 
 
 sleep 5
 
