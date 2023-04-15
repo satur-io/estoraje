@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v3
       - name: Create resources
         run: |
           chmod +x ./cicd/create_resources_for_load_testing.sh
@@ -22,6 +23,7 @@ jobs:
     if: always()
     needs: [load-test]
     steps:
+      - uses: actions/checkout@v3
       - name: Cleanup
         run: |
           chmod +x ./cicd/clean_resources_for_load_testing.sh
