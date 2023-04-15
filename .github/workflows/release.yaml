@@ -30,4 +30,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: linux
         goarch: amd64
-        asset_name: estoraje-${GOOS}-${GOARCH}
+        asset_name: estoraje
