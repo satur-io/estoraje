@@ -2,6 +2,9 @@ name: Performance
 
 on: workflow_dispatch
 
+env:
+  DIGITAL_OCEAN_TOKEN: ${{ secrets.DIGITAL_OCEAN_TOKEN }}
+
 jobs:
   load-test:
     runs-on: ubuntu-latest
