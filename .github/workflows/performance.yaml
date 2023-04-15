@@ -4,17 +4,16 @@ jobs:
   load-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Create resources
-        run: ./cicd/create_resources_for_load_testing.sh
+        run: ../cicd/create_resources_for_load_testing.sh
       - name: Run load test
         id: locust
-        run: ./cicd/performance.sh
+        run: ../cicd/performance.sh
 
   cleanup:
     runs-on: ubuntu-latest
     if: always()
     needs: [load-test]
     steps:
-      - run: ./cicd/clean_resources_for_load_testing.sh
+      - run: ../cicd/clean_resources_for_load_testing.sh
