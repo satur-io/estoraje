@@ -137,9 +137,10 @@ ExecStart=caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_I
 EOF"
 
 ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \ 'systemctl start caddy-lb'
- 
+sleep 10
+ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \ 'systemctl status caddy-lb'
 
-sleep 5
+sleep 10
 
 curl --insecure -X POST -d "cluster-running" https://${LOAD_BALANCER_PUBLIC_IP}/test
 curl --insecure https://${LOAD_BALANCER_PUBLIC_IP}/test
