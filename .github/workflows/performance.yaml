@@ -16,3 +16,5 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [load-test]
+    steps:
+      - run: ./cicd/clean_resources_for_load_testing.sh
