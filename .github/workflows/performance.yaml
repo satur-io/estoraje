@@ -12,12 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Add ssh key
-        run: ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
       - name: Create resources
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           chmod +x ./cicd/create_resources_for_load_testing.sh
           ./cicd/create_resources_for_load_testing.sh
       - name: Run load test
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         id: locust
         run: |
           chmod +x ./cicd/performance.sh
