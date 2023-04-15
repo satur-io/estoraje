@@ -123,6 +123,8 @@ while $should_repeat; do
 done
 
 ssh -o "StrictHostKeyChecking=no" root@${LOAD_BALANCER_PUBLIC_IP} 'snap install --edge caddy'
+ssh -o "StrictHostKeyChecking=no" root@${LOAD_BALANCER_PUBLIC_IP} 'whereis caddy'
+
 ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \
     "cat <<EOF > /etc/systemd/system/caddy-lb.service
 [Unit]
@@ -133,7 +135,7 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=1
-ExecStart=caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_IPS[0]}:8001 --to ${PRIVATE_IPS[1]}:8001 --to ${PRIVATE_IPS[2]}:8001
+ExecStart=/snap/bin/caddy reverse-proxy --from ${LOAD_BALANCER_PUBLIC_IP} --to ${PRIVATE_IPS[0]}:8001 --to ${PRIVATE_IPS[1]}:8001 --to ${PRIVATE_IPS[2]}:8001
 EOF"
 
 ssh -o "StrictHostKeyChecking=no" -fn root@${LOAD_BALANCER_PUBLIC_IP} \ 'systemctl start caddy-lb'
