@@ -15,7 +15,7 @@ class DataBaseUser(HttpUser):
     @task(1)
     def write(self):
         key, value = self.get_sample()
-        self.client.post("/{}".format(key), value, name="write")
+        self.client.post("/{}".format(key), value, name="write", verify=False)
         self.writed_keys.append(key)
 
 
@@ -23,7 +23,7 @@ class DataBaseUser(HttpUser):
     def read(self):
         if len(self.writed_keys) == 0:
             return
-        self.client.get("/{}".format(random.choice(self.writed_keys)), name="read")
+        self.client.get("/{}".format(random.choice(self.writed_keys)), name="read", verify=False)
 
 if __name__ == "__main__":
     run_single_user(DataBaseUser)
